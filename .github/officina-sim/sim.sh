@@ -7,11 +7,11 @@ rows=()
 code_of() { grep -m1 -oE '^HTTP/[0-9.]+ [0-9]{3}' <<<"$1" | awk '{print $2}'; }
 call() { # call <token> <args gh api...> -> imposta CODE e BODY
   local tok="$1"; shift
-  local out; out=$(GH_TOKEN="$tok" gh api -i "$@" 2>&1); CODE=$(code_of "$out"); BODY=$(sed '1,/^\r\{0,1\}$/d' <<<"$out" | tr -d '\r' | head -c 600)
+  local out; out=$(GH_TOKEN="$tok" gh api -i "$@" 2>&1); CODE=$(code_of "$out"); BODY=$(sed '1,/^\r\{0,1\}$/d' <<<"$out" | tr -d '\r')
 }
 rec() { # rec <id> <descrizione> <atteso> <osservato> <conforme:true|false>
-  local mark; [ "$5" = true ] && mark="CONFORME" || mark="**NON CONFORME**"
-  rows+=("| $1 | $2 | $3 | $4 | $mark |")
+  local mark; local obs="${4:0:160}"; obs="${obs//|//}"; [ "$5" = true ] && mark="CONFORME" || mark="**NON CONFORME**"
+  rows+=("| $1 | $2 | $3 | $obs | $mark |")
 }
 main_sha() { call "$AGENT_TOKEN" "repos/$REPO/git/ref/heads/main"; jq -r '.object.sha' <<<"$BODY"; }
 mkbranch() { call "$AGENT_TOKEN" -X POST "repos/$REPO/git/refs" -f ref="refs/heads/$1" -f sha="$(main_sha)"; }
@@ -27,6 +27,7 @@ headsha() { call "$AGENT_TOKEN" "repos/$REPO/pulls/$1"; jq -r '.head.sha' <<<"$B
 # lettura degli stati con il token del workflow: l'App agente non ha il permesso statuses
 verify_state() { call "$WORKFLOW_TOKEN" "repos/$REPO/commits/$1/status"; jq -r '[.statuses[] | select(.context=="officina/verify")][0] | "\(.state // "assente") da \(.creator.login // "?")"' <<<"$BODY"; }
 wait_verify() { # attende fino a ~12 minuti lo stato officina/verify del commit
+  [ -z "$1" ] && { echo "assente (nessun commit)"; return; }
   local s; for _ in $(seq 1 72); do s=$(verify_state "$1"); case "$s" in success*|failure*|error*) echo "$s"; return;; esac; sleep 10; done; echo "$s (timeout)"
 }
 FIX=$'// Packing list: il totale colli somma i colli delle righe.\nexport function totaleColli(righe) {\n  let tot = 0;\n  for (const r of righe) if (r.quantita > 0) tot += Math.ceil(r.quantita / r.perCollo);\n  return tot;\n}\n'
