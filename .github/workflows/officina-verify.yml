@@ -20,7 +20,10 @@ jobs:
     env:
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      AGENT_PR: ${{ startsWith(github.event.pull_request.head.ref, 'agent/') }}
+      # Regole dei percorsi protetti applicate a OGNI PR, salvo quelle aperte dal responsabile da un branch
+      # dello stesso repository non riservato all'agente (identita' verificata da GitHub, non dal nome del branch).
+      AGENT_PR: ${{ !(github.event.pull_request.user.login == github.repository_owner && github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'agent/')) }}
+      # Fail-to-pass vincolante sulle correzioni (scelta di qualita', non di sicurezza: il giudice decide comunque).
       F2P_MODE: ${{ startsWith(github.event.pull_request.head.ref, 'agent/fix-') && 'enforce' || 'report' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,9 +40,19 @@ jobs:
       - name: Suite di sviluppo (comando fidato)
         working-directory: candidate
         run: eval "$(cat ../trusted/verify/test-command)" 2>&1 | tee ../tests.txt
+      # Copia fidata nuova, presa DOPO l'esecuzione dei test del candidato e senza gli attesi:
+      # il produttore non puo' essere stato alterato dai passi precedenti.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: trusted-produce
+          ref: '${{ env.BASE_SHA }}'
+          persist-credentials: false
+          sparse-checkout: |
+            verify
+            acceptance/cases
       - name: Produzione output di accettazione (codice candidato, input fidati)
         working-directory: candidate
-        run: mkdir -p ../out && eval "$(cat ../trusted/verify/produce-command) ../out"
+        run: mkdir -p ../out && node ../trusted-produce/verify/produce.mjs ../out
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
