@@ -106,7 +106,10 @@ guard-regressione)
   ;;
 stato-falso)
   # Prerequisito: il responsabile ha approvato la PR difettosa (solo per isolare il controllo sulla sorgente attesa).
-  P_BUG=$(prnum agent/feat-bug); HB=$(headsha "$P_BUG")
+  # PR difettosa ancora aperta e approvata dal responsabile: prima agent/feat-bug, altrimenti agent/fix-giudice
+  P_BUG=$(prnum agent/feat-bug); [ -z "$P_BUG" ] && P_BUG=$(prnum agent/fix-giudice); HB=$(headsha "$P_BUG")
+  call "$WORKFLOW_TOKEN" "repos/$REPO/pulls/$P_BUG/reviews"; APPR=$(jq -r '[.[] | select(.state=="APPROVED")] | length' <<<"$BODY")
+  rec PRE "PR difettosa usata e approvazioni del responsabile" "PR aperta con almeno 1 approvazione" "PR #$P_BUG, approvazioni=$APPR" "$([ "${APPR:-0}" -ge 1 ] && echo true || echo false)"
   call "$WORKFLOW_TOKEN" -X POST "repos/$REPO/statuses/$HB" -f state=success -f context=officina/verify -f description="stato falso da un'altra identita'"
   rec NEG-06b-post "Stato success pubblicato da GitHub Actions (non dal verificatore)" "accettato dall'API ma ignorato dal ruleset" "HTTP $CODE" "$([ "$CODE" = 201 ] && echo true || echo false)"
   sleep 15
