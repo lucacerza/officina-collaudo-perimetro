@@ -92,7 +92,7 @@ jobs:
       - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: app
         with:
-          client-id: ${{ vars.OFFICINA_VERIFIER_CLIENT_ID }}
+          app-id: ${{ vars.OFFICINA_VERIFIER_APP_ID }}   # ID numerico: evita errori di trascrizione del Client ID
           private-key: ${{ secrets.OFFICINA_VERIFIER_KEY }}
           permission-statuses: write
       - name: Pubblica lo stato con l'identita' del verificatore
