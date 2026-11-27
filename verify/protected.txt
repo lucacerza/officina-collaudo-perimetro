@@ -1,0 +1,11 @@
+# Tutto cio' che determina l'esito della verifica. L'agente non puo' modificarlo.
+.github/**
+verify/**
+CODEOWNERS
+.gitattributes
+.gitmodules
+.claude/settings.json
+# Runner e dipendenze del giudice di accettazione (adattare per stack)
+acceptance/runner/**
+AGENTS.md
+CLAUDE.md

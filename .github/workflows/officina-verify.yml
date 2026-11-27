@@ -1,0 +1,93 @@
+# Officina — verifica fidata (F1).
+# - Definizione SEMPRE dal branch base (pull_request_target): la PR non puo' cambiarla.
+# - "produce": esegue il codice candidato su runner standard, token in sola lettura, NESSUN segreto.
+# - "judge": non esegue codice candidato; unico job con l'environment "officina-verifier"
+#   (deployment branch policy: solo main). Pubblica lo stato "officina/verify" con l'identita'
+#   della GitHub App verificatrice, che il ruleset richiede come sorgente attesa.
+name: officina-verify
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions: {}
+concurrency:
+  group: officina-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    timeout-minutes: 15
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      AGENT_PR: ${{ startsWith(github.event.pull_request.head.ref, 'agent/') }}
+      F2P_MODE: ${{ startsWith(github.event.pull_request.head.ref, 'agent/fix-') && 'enforce' || 'report' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: trusted, ref: '${{ env.BASE_SHA }}', persist-credentials: false }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: candidate, ref: '${{ env.HEAD_SHA }}', fetch-depth: 0, persist-credentials: false }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: basecopy, ref: '${{ env.BASE_SHA }}', persist-credentials: false }
+      - name: Guard percorsi protetti (script dalla copia fidata)
+        working-directory: candidate
+        run: bash ../trusted/verify/guard.sh "$BASE_SHA" "$HEAD_SHA" "$AGENT_PR" ../trusted/verify | tee ../guard.txt
+      - name: Fail-to-pass (test aggiunti dalla PR)
+        run: bash trusted/verify/f2p.sh basecopy candidate "$BASE_SHA" "$HEAD_SHA" "$(cat trusted/verify/test-command)" "$F2P_MODE" | tee f2p.txt
+      - name: Suite di sviluppo (comando fidato)
+        working-directory: candidate
+        run: eval "$(cat ../trusted/verify/test-command)" 2>&1 | tee ../tests.txt
+      - name: Produzione output di accettazione (codice candidato, input fidati)
+        working-directory: candidate
+        run: mkdir -p ../out && eval "$(cat ../trusted/verify/produce-command) ../out"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: officina-evidence
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            out/**
+            guard.txt
+            f2p.txt
+            tests.txt
+
+  judge:
+    needs: produce
+    if: always()
+    runs-on: ubuntu-latest
+    environment: officina-verifier
+    permissions: { contents: read }
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: trusted, ref: '${{ github.event.pull_request.base.sha }}', persist-credentials: false }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with: { name: officina-evidence, path: evidence }
+      - name: Giudizio (nessun codice candidato)
+        id: judge
+        run: |
+          set +e
+          node trusted/verify/judge.mjs evidence/out trusted/acceptance/expected | tee judge.txt
+          j=${PIPESTATUS[0]}
+          if [ "${{ needs.produce.result }}" = "success" ] && [ "$j" -eq 0 ]; then
+            echo "state=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=failure" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        id: app
+        with:
+          client-id: ${{ vars.OFFICINA_VERIFIER_CLIENT_ID }}
+          private-key: ${{ secrets.OFFICINA_VERIFIER_KEY }}
+          permission-statuses: write
+      - name: Pubblica lo stato con l'identita' del verificatore
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          STATE: ${{ steps.judge.outputs.state }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$STATE" -f context='officina/verify' \
+            -f description="produce=${{ needs.produce.result }} judge=$STATE" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

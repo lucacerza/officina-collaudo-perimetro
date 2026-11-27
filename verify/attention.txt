@@ -1,0 +1,8 @@
+# Consentito all'agente ma evidenziato al revisore umano.
+tests/**
+**/*.test.*
+package-lock.json
+pnpm-lock.yaml
+poetry.lock
+uv.lock
+**/packages.lock.json

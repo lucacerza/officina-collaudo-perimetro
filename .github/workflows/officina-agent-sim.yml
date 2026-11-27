@@ -1,0 +1,37 @@
+# Officina — simulazione dell'agente (F1). Avviata manualmente dal responsabile.
+# Usa SOLO il token dell'App agente (permessi: contents + pull requests) per tentare le azioni vietate
+# e registra atteso/osservato. Il token di questo workflow (GITHUB_TOKEN) serve unicamente al caso
+# "stato falsificato da un'altra identita'" (NEG-10).
+name: officina-agent-sim
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "attacchi | dopo-approvazione | stato-falso"
+        required: true
+        default: attacchi
+permissions: {}
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    environment: agent-sim
+    permissions: { contents: read, statuses: write, pull-requests: read }
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        id: agent
+        with:
+          client-id: ${{ vars.AGENT_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_KEY }}
+      - name: Esegui la fase
+        env:
+          AGENT_TOKEN: ${{ steps.agent.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PHASE: ${{ inputs.phase }}
+        run: bash .github/officina-sim/sim.sh | tee sim-result.md
+      - name: Riepilogo
+        if: always()
+        run: cat sim-result.md >> "$GITHUB_STEP_SUMMARY"

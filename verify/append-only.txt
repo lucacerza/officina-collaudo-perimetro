@@ -1,0 +1,6 @@
+# Attesi, gold set, soglie, baseline: l'agente puo' solo AGGIUNGERE nuovi file regolari.
+# Cambiare o rimuovere un atteso esistente richiede una PR del responsabile.
+acceptance/cases/**
+acceptance/expected/**
+acceptance/gold/**
+acceptance/thresholds/**

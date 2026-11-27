@@ -1,0 +1,18 @@
+# Officina — rilascio (F1). Parte solo da un tag v* che il ruleset consente di creare al solo responsabile.
+name: officina-release
+on:
+  push:
+    tags: ['v*']
+permissions: {}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - name: Il commit del tag deve appartenere a main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main && echo "OK commit su main"
+      - name: Rilascio simulato
+        run: echo "Rilascio sintetico di ${GITHUB_REF_NAME} (nessun deploy reale)."

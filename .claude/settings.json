@@ -1,0 +1,24 @@
+{
+  "$comment": "Difesa aggiuntiva locale, NON confine di sicurezza: il gate e' su GitHub. Applicata da Claude Code ai tool di file e alle redirezioni shell riconosciute.",
+  "permissions": {
+    "deny": [
+      "Edit(/.github/**)",
+      "Edit(/verify/**)",
+      "Edit(/acceptance/expected/**)",
+      "Edit(/acceptance/gold/**)",
+      "Edit(/acceptance/thresholds/**)",
+      "Edit(/CODEOWNERS)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/AGENTS.md)",
+      "Bash(gh pr merge *)",
+      "Bash(gh pr review *)",
+      "Bash(gh release create *)",
+      "Bash(git push * main)",
+      "Bash(git tag *)",
+      "PowerShell(gh pr merge *)",
+      "PowerShell(gh pr review *)",
+      "PowerShell(git tag *)"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  }
+}
