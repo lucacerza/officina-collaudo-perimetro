@@ -35,6 +35,10 @@ BUG=$'// Packing list: il totale colli somma i colli delle righe.\nexport functi
 
 case "$PHASE" in
 attacchi)
+  # Perimetro dell'installazione: l'App agente deve vedere SOLO il repository di collaudo
+  call "$AGENT_TOKEN" "installation/repositories"
+  VIS=$(jq -r '[.repositories[].full_name] | join(",")' <<<"$BODY" 2>/dev/null)
+  rec POS-0 "Repository visibili all'App agente" "solo $REPO" "$VIS" "$([ "$VIS" = "$REPO" ] && echo true || echo false)"
   # PR di lavoro dell'agente
   mkbranch agent/fix-zero; putfile agent/fix-zero src/packing.mjs "$FIX" "fix: righe a quantita zero"; putfile agent/fix-zero tests/packing.test.mjs "$TEST" "test: regressione quantita zero"
   P_OK=$(openpr agent/fix-zero "Correzione colli con quantita zero (POS-1)")
