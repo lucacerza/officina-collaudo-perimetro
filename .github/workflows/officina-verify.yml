@@ -9,6 +9,10 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 permissions: {}
+# shell: bash => GitHub usa 'bash -eo pipefail': un passo fallito non puo' essere mascherato da '| tee'.
+defaults:
+  run:
+    shell: bash
 concurrency:
   group: officina-verify-${{ github.event.pull_request.number }}
   cancel-in-progress: true
